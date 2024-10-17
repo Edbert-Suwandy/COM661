@@ -2,8 +2,11 @@ FROM python:latest
 
 WORKDIR /app
 
-COPY . .
-
+COPY requirement.txt .
 RUN pip install -r requirement.txt
 
-CMD [python backend.py]
+COPY ./app/** .
+
+EXPOSE 5000
+
+CMD ["python","-m", "flask", "--app", "app", "run" ,"--host","0.0.0.0"]
