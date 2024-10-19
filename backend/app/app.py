@@ -43,21 +43,19 @@ def upload_csv():
 
     collection = get_collection()
 
-    # for each ultimate recipent get their entries if don't exsist put in otherwise append gift
+    # TO-DO Maybe upsert could be cool
     for input in inputs:
         details = get_collection().find_one({"Ultimate_Recipient":input.get("Ultimate_Recipient")})
         if details != None:
             collection.update_one(filter={"Ultimate_Recipient": input.get("Ultimate_Recipient")},update={"$push": {"Gifts":input.get("Gifts")[0]}})
         else:
             collection.insert_one(input)
-    # TO-DO Maybe upsert could be cool
 
-    # collection.insert_many(input)
     if(collection != None):
        return jsonify({"success": True})
     return jsonify({"success":False})
 
-# ADD PAGINATIONS
+#TO-DO: ADD PAGINATIONS
 @app.route("/member", methods=["GET"])
 def get_all():
     result = get_collection().find({})
