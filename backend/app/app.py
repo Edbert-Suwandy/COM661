@@ -51,6 +51,7 @@ def upload_csv():
         else:
             collection.insert_one(input)
 
+    # TO-DO: On success delete the csv
     if(collection != None):
        return jsonify({"success": True})
     return jsonify({"success":False})
