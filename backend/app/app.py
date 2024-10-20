@@ -60,10 +60,21 @@ def upload_csv():
 @app.route("/member", methods=["GET"])
 def get_all():
     result = get_collection().find({})
-
     resp = result.to_list()
-
     return jsonify(json.dumps(obj=resp,cls=JSONEncoder))
+
+#TO-DO: ADD PAGINATIONS FOR GRATUITY TABLE
+@app.route("/member/<string:id>")
+def get_specific(id):
+    # return jsonify({"id":id})
+    collection = get_collection()
+    resp = collection.find_one(filter={"_id":ObjectId(id)})
+    if resp != None:
+        return jsonify(json.dumps(obj=resp,cls=JSONEncoder))
+    #TO-DO: Return the acceptance rate of gratuity all time
+    #TO-DO: Gratuity offered (Accepted and denied) timeline
+    #TO-DO: Company offering gratuity timeline
+    return jsonify({"Message":"id not found"})
 
 # SOLUTION FROM https://vuyisile.com/dealing-with-the-type-error-objectid-is-not-json-serializable-error-when-working-with-mongodb/
 class JSONEncoder(json.JSONEncoder):
