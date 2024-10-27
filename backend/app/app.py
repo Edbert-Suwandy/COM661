@@ -1,3 +1,4 @@
+from json.encoder import JSONEncoder
 from flask import Flask, make_response, jsonify, request, session
 from os import getenv, path
 from werkzeug.utils import secure_filename
@@ -25,7 +26,7 @@ def get_collection() -> Collection:
 def upload_csv():
     f = request.files.get('file')
     if f == None:
-        return jsonify({"message":"no file in the body of request found"})
+        return jsonify({"message":"no params name file in the body of request found"})
     data_filename = secure_filename(f.filename)
     f.save(path.join(app.config['UPLOAD_FOLDER'],data_filename))
     session['uploaded_data_file_path'] = path.join(app.config['UPLOAD_FOLDER'],data_filename)
@@ -38,6 +39,7 @@ def upload_csv():
         details = get_collection().find_one({"Ultimate_Recipient":input.get("Ultimate_Recipient")})
         if details != None:
             # find the Ultimate_Recipient, append gift, sum the number of accepted offer, update total gift and total accepted gift
+            # TO-DO: DEDUPE ENTRIES BASED ON CHECKSUM
             collection.update_one(filter={"Ultimate_Recipient":input.get("Ultimate_Recipient")},\
                     update={"$push":{"Gifts": input.get("Gifts")[0]},\
                     "$inc": {"Total_Gifts": input.get("Total_Gifts"),"Total_Accepted_Gifts": input.get("Total_Accepted_Gifts")},\
@@ -57,13 +59,11 @@ def get_all_member():
     page:int = request.args.get(key="page",default=1,type=int)
     if page <= 1:
         page = 1
-
-    # Dont want to show all just stats
     result = get_collection().find({}).skip((page-1)*paginate).limit(paginate)
     resp = result.to_list()
     return jsonify(json.dumps(obj=resp,cls=JSONEncoder))
 
-@app.route("/member/<string:id>")
+@app.route("/member/<string:id>",methods=["GET"])
 def get_specific_member(id):
     collection = get_collection()
 
@@ -84,7 +84,7 @@ def get_specific_member(id):
 
     return jsonify(json.dumps(obj=resp,cls=JSONEncoder))
 
-@app.route("/Business_Area", methods=["GET"])
+@app.route("/businessArea", methods=["GET"])
 def get_all_business_area():
     paginate:int = request.args.get(key="paginate",default=10, type=int)
     if paginate < 1:
@@ -97,7 +97,7 @@ def get_all_business_area():
     result = get_collection().aggregate(pipeline=[{"$group": {"_id": "$Business_Area","Total_Gifts":{"$sum": "$Total_Gifts"},"Total_Accepted_Gifts":{"$sum":"$Total_Accepted_Gifts"}}}]).to_list()
     return jsonify(json.dumps(obj=result,cls=JSONEncoder))
 
-@app.route("/Business_Area/<string:name>")
+@app.route("/businessArea/<string:name>",methods=["GET"])
 def get_specific_Business_Area(name):
     paginate:int = request.args.get(key="paginate",default=10, type=int)
     if paginate < 1:
@@ -124,6 +124,44 @@ def get_specific_Business_Area(name):
     if resp == None:
         return jsonify({"message":"Business Area not found"})
     return jsonify(json.dumps(obj=resp,cls=JSONEncoder))
+
+@app.route("/business",methods=["GET"])
+def get_business():
+    paginate:int = request.args.get(key="paginate",default=10, type=int)
+    if paginate < 1:
+        paginate = 10
+    page:int = request.args.get(key="page",default=1,type=int)
+    if page <= 1:
+        page = 1
+    # Unwind gift, group business, count all offer, count accepted offer
+    result = get_collection().aggregate(pipeline=[\
+            {"$unwind":"$Gifts"},\
+            {"$group":\
+            {"_id":"$Gifts.Offered_From",\
+            "Total_Offer":{"$sum":1},\
+            "Total_Accepted_Offer":{"$sum":{"$cond": [{"$eq":["$Gifts.Action_Taken","Accepted"]},1,0]}}\
+            }},\
+            {"$skip": (page-1) * paginate},\
+            {"$limit": paginate}\
+            ]).to_list()
+    return jsonify(json.dumps(cls=JSONEncoder, obj=result))
+
+@app.route("/business/<string:business>")
+def get_specific_business(business):
+    paginate:int = request.args.get(key="paginate",default=10, type=int)
+    if paginate < 1:
+        paginate = 10
+    page:int = request.args.get(key="page",default=1,type=int)
+    if page <= 1:
+        page = 1
+    # unwind gifts, match Gifts.Offered_From, Order by date
+    result = get_collection().aggregate(pipeline=[\
+            {"$unwind":"$Gifts"},\
+            {"$match": {"Gifts.Offered_From":business}},\
+            {"$skip":(page-1)*paginate},\
+            {"$limit": paginate},\
+            ]).to_list()
+    return jsonify(json.dumps(obj=result, cls=JSONEncoder))
 
 # SOLUTION FROM https://vuyisile.com/dealing-with-the-type-error-objectid-is-not-json-serializable-error-when-working-with-mongodb/
 class JSONEncoder(json.JSONEncoder):

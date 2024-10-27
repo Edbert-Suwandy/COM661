@@ -16,7 +16,7 @@ def parse_csv(file_path: str):
                 "Offered_From": lines[4],
                 "Description_of_Offer": lines[5],
                 "Reason_for_offer": lines[6],
-                "Details_of_c ontract": lines[7],
+                "Details_of_contract": lines[7],
                 "Estimated_Gift_Value": lines[8],
                 "Action_Taken": lines[9],
                 "timestamp": datetime.now().isoformat() 
