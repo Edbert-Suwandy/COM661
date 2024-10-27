@@ -67,15 +67,23 @@ def get_all_member():
 def get_specific_member(id):
     collection = get_collection()
 
+    paginate:int = request.args.get(key="paginate",default=10, type=int)
+    if paginate < 1:
+        paginate = 10
+    page:int = request.args.get(key="page",default=1,type=int)
+    if page <= 1:
+        page = 1
+
     start = request.args.get(key="start",default="01/01/1000")
     end = request.args.get(key="end",default=datetime.today().strftime('%d/%m/%Y'))
-
     start_isotime = datetime.strptime(start, "%d/%m/%Y").isoformat()
     end_isotime = datetime.strptime(end, "%d/%m/%Y").isoformat()
 
     resp = collection.aggregate([{"$match":{"_id":ObjectId(id)}},\
             {"$unwind": "$Gifts"},\
             {"$match":{"Gifts.Date_of_Offer":{"$gt":start_isotime,"$lt":end_isotime}}},\
+            {"$skip": (page-1) * paginate},\
+            {"$limit": paginate},\
             ])\
             .to_list()
     if resp == None:
