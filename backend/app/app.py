@@ -121,7 +121,6 @@ def get_specific_Business_Area(name):
 
     start = request.args.get(key="start",default="01/01/1000")
     end = request.args.get(key="end",default=datetime.today().strftime('%d/%m/%Y'))
-
     start_isotime = datetime.strptime(start, "%d/%m/%Y").isoformat()
     end_isotime = datetime.strptime(end, "%d/%m/%Y").isoformat()
 
@@ -167,10 +166,16 @@ def get_specific_business(business):
     page:int = request.args.get(key="page",default=1,type=int)
     if page <= 1:
         page = 1
+
+    start = request.args.get(key="start",default="01/01/1000")
+    end = request.args.get(key="end",default=datetime.today().strftime('%d/%m/%Y'))
+    start_isotime = datetime.strptime(start, "%d/%m/%Y").isoformat()
+    end_isotime = datetime.strptime(end, "%d/%m/%Y").isoformat()
+
     # unwind gifts, match Gifts.Offered_From, Order by date
     result = get_collection().aggregate(pipeline=[\
             {"$unwind":"$Gifts"},\
-            {"$match": {"Gifts.Offered_From":business}},\
+            {"$match": {"Gifts.Offered_From":business,"$lt":{"Gifts.Date_of_Offer": end_isotime}, "$gt": {"Gifts.Date_Of_Offer": start_isotime}}},\
             {"$skip":(page-1)*paginate},\
             {"$limit": paginate},\
             ]).to_list()
