@@ -175,7 +175,7 @@ def get_specific_business(business):
     # unwind gifts, match Gifts.Offered_From, Order by date
     result = get_collection().aggregate(pipeline=[\
             {"$unwind":"$Gifts"},\
-            {"$match": {"Gifts.Offered_From":business,"$lt":{"Gifts.Date_of_Offer": end_isotime}, "$gt": {"Gifts.Date_Of_Offer": start_isotime}}},\
+            {"$match": {"Gifts.Offered_From":business, "Gifts.Date_of_Offer": {"$lt": end_isotime, "$gt": start_isotime}}},\
             {"$skip":(page-1)*paginate},\
             {"$limit": paginate},\
             ]).to_list()
