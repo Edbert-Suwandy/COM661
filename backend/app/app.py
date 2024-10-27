@@ -67,7 +67,6 @@ def get_all_member():
 def get_specific_member(id):
     collection = get_collection()
 
-    #TO-DO Deduping entries (TECH DIFF)
     start = request.args.get(key="start",default="01/01/1000")
     end = request.args.get(key="end",default=datetime.today().strftime('%d/%m/%Y'))
 
@@ -94,7 +93,13 @@ def get_all_business_area():
         page = 1
 
     # Group by Business_Area, sum the Total_Gifts, sum Total_Accepted_Gifts
-    result = get_collection().aggregate(pipeline=[{"$group": {"_id": "$Business_Area","Total_Gifts":{"$sum": "$Total_Gifts"},"Total_Accepted_Gifts":{"$sum":"$Total_Accepted_Gifts"}}}]).to_list()
+    result = get_collection().aggregate(pipeline=[{"$group": \
+            {"_id": "$Business_Area",\
+            "Total_Gifts":{"$sum": "$Total_Gifts"},\
+            "Total_Accepted_Gifts":{"$sum":"$Total_Accepted_Gifts"}}},\
+            {"$skip": (page-1) * paginate},\
+            {"$limit": paginate},\
+            ]).to_list()
     return jsonify(json.dumps(obj=result,cls=JSONEncoder))
 
 @app.route("/businessArea/<string:name>",methods=["GET"])
