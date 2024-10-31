@@ -49,7 +49,7 @@ def register():
     userid = User.insert_one({"username": username, "password": sha256(password.encode("UTF-8")).hexdigest(),"description":description, "is_admin": False}).inserted_id
     return make_response(jsonify({"message": "user added","id": str(userid)}), 201)
 
-@admin_bp.route("/update/<string:id>",methods=["PUT"])
+@admin_bp.route("/<string:id>/update",methods=["PUT"])
 @admin_required
 @sudo_required
 def update(id):
@@ -65,7 +65,7 @@ def update(id):
     else:
         return make_response(jsonify({"message", "query not acknowledged by db"}),500)
 
-@admin_bp.route("/delete/<string:id>",methods=["DELETE"])
+@admin_bp.route("/<string:id>/delete",methods=["DELETE"])
 @admin_required
 @sudo_required
 def delete(id):
