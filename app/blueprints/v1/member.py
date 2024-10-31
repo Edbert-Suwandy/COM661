@@ -66,7 +66,7 @@ def delete_member(id):
     if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
     
-    return make_response(jsonify({"message": "user succesfully deleted", "id": id}),200)
+    return make_response(jsonify({"message": "user succesfully deleted", "id": str(id)}),200)
 
 @member_bp.route("/<string:id>/update",methods=["PATCH"])
 @admin_required
@@ -88,7 +88,7 @@ def update_member(id):
 
     if not resp:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
-    return make_response(jsonify({"message": "user succesfully deleted", "id": id}),200)
+    return make_response(jsonify({"message": "user succesfully updated", "id": str(id)}),200)
 
 @member_bp.route("/<string:id>/gifts",methods=["PUT"])
 @admin_required
@@ -98,29 +98,30 @@ def add_gift(id):
     except:
         return make_response(jsonify({"message": id + "is not a valid id"}),400)
     gifts = {\
-            "Date_of_Offer" :  request.args.get("Date_of_Offer"),\
-    "Offered_From" : request.args.get("Offered_From"),\
-    "Offered_to" : request.args.get("Offered_to"),\
-    "Description_of_Offer" : request.args.get("Description_of_Offer"),\
-    "Reason_for_offer" : request.args.get("Reason_for_offer"),\
-    "Estimated_Gift_Value" : request.args.get("Estimated_Gift_Value"),\
-    "Action_Taken" : request.args.get("Action_Taken"),\
+    "Date_of_Offer" :  request.form.get("Date_of_Offer"),\
+    "Offered_From" : request.form.get("Offered_From"),\
+    "Offered_to" : request.form.get("Offered_to"),\
+    "Description_of_Offer" : request.form.get("Description_of_Offer"),\
+    "Reason_for_offer" : request.form.get("Reason_for_offer"),\
+    "Estimated_Gift_Value" : request.form.get("Estimated_Gift_Value"),\
+    "Action_Taken" : request.form.get("Action_Taken"),\
     }
     
-    if gifts.get("Date_of_Offer") == None or gifts.get("Offered_From") == None or gifts.get("Offered_to") == None or gifts.get("Description_of_Offer") == None or gifts.get("Reason_for_offer") == None or gifts.get("Estimated_Gift_Value") == None or gifts.get("Action_Taken") == None:
-        return make_response(jsonify({"message": "bad request all field must be filled"}),400)
+    for key in gifts.keys():
+        if not gifts.get(key):
+            return make_response({"message": "bad request field " + key + " must be filled"})
 
     try:
         datetime.strptime(gifts.get("Date_of_Offer"), "%d/%m/%Y")
     except:
         return make_response(jsonify({"message": "datetime invalid use format dd/mm/yyyy"}),400)
 
-    gift_hash = sha256(dumps(gifts.encode())).hexdigest()
+    gift_hash = sha256(dumps(gifts).encode()).hexdigest()
     gifts["gift_hash"] = gift_hash
     resp = DoF.update_one(filter={"_id": id}, update={"$push": gifts}).acknowledged
     if not resp:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
-    return make_response(jsonify({"message": "user succesfully deleted", "id": id}),200)
+    return make_response(jsonify({"message": "Gift succesfully uploaded", "id": str(id), "hash": gift_hash}),200)
 
 @member_bp.route("<string:id>/gift/<string:hash>/update",methods=["PATCH"])
 @admin_required
@@ -134,16 +135,15 @@ def update_gift(id,hash):
     if key == None or value == None:
         return make_response(jsonify({"message": "bad request both key and value must be filled"}),400)
 
-    resp = DoF.update_one(filter={"_id": id,"Gifts": {"hash": hash}}, update={"$set": {"Gifts.$."+ key: value}},upsert=True).acknowledged
-
+    resp = DoF.update_one(filter={"_id": id,"Gifts.hash": hash}, update={"$set": {"Gifts.$."+key : value}}).acknowledged
     if not resp:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
     
-    return make_response(jsonify({"message": "gift succesfully deleted", "id": id}),200)
+    return make_response(jsonify({"message": "gift succesfully deleted", "id": str(id)}),201)
 
-@member_bp.route("gift/<string:hash>/delete",methods=["DELETE"])
+@member_bp.route("<string:id>/gift/<string:hash>/delete",methods=["DELETE"])
 @admin_required
-def delete_gift(hash):
+def delete_gift(hash,id):
     resp = DoF.delete_one(filter={"Gifts": {"hash": hash}})
 
     if not resp.acknowledged:
