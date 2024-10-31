@@ -1,7 +1,9 @@
 from flask import Blueprint, request, make_response, jsonify
 from datetime import datetime
 from bson import ObjectId
+from json import dumps
 from globals import DoF, ObjectId_to_str
+from hashlib import sha256
 from decorator import admin_required 
 
 member_bp = Blueprint("member_BP", __name__)
@@ -96,7 +98,7 @@ def add_gift(id):
     except:
         return make_response(jsonify({"message": id + "is not a valid id"}),400)
     gifts = {\
-    "Date_of_Offer" :  request.args.get("Date_of_Offer"),\
+            "Date_of_Offer" :  request.args.get("Date_of_Offer"),\
     "Offered_From" : request.args.get("Offered_From"),\
     "Offered_to" : request.args.get("Offered_to"),\
     "Description_of_Offer" : request.args.get("Description_of_Offer"),\
@@ -104,14 +106,17 @@ def add_gift(id):
     "Estimated_Gift_Value" : request.args.get("Estimated_Gift_Value"),\
     "Action_Taken" : request.args.get("Action_Taken"),\
     }
+    
     if gifts.get("Date_of_Offer") == None or gifts.get("Offered_From") == None or gifts.get("Offered_to") == None or gifts.get("Description_of_Offer") == None or gifts.get("Reason_for_offer") == None or gifts.get("Estimated_Gift_Value") == None or gifts.get("Action_Taken") == None:
-        return make_response(jsonify({"message": "bad request all field must be filled"}, 400))
+        return make_response(jsonify({"message": "bad request all field must be filled"}),400)
 
     try:
         datetime.strptime(gifts.get("Date_of_Offer"), "%d/%m/%Y")
     except:
         return make_response(jsonify({"message": "datetime invalid use format dd/mm/yyyy"}),400)
 
+    gift_hash = sha256(dumps(gifts.encode())).hexdigest()
+    gifts["gift_hash"] = gift_hash
     resp = DoF.update_one(filter={"_id": id}, update={"$push": gifts}).acknowledged
     if not resp:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
@@ -127,7 +132,7 @@ def update_gift(id,hash):
     key = request.headers.get("key")
     value = request.headers.get("value")
     if key == None or value == None:
-        return make_response(jsonify({"message": "bad request both key and value must be filled"}, 400))
+        return make_response(jsonify({"message": "bad request both key and value must be filled"}),400)
 
     resp = DoF.update_one(filter={"_id": id,"Gifts": {"hash": hash}}, update={"$set": {"Gifts.$."+ key: value}},upsert=True).acknowledged
 
@@ -138,7 +143,7 @@ def update_gift(id,hash):
 
 @member_bp.route("gift/<string:hash>/delete",methods=["DELETE"])
 @admin_required
-def delete_member(hash):
+def delete_gift(hash):
     resp = DoF.delete_one(filter={"Gifts": {"hash": hash}})
 
     if not resp.acknowledged:
