@@ -163,4 +163,4 @@ cython_debug/
 
 # db data
 /db
-/backend/datastore
+/datastore
