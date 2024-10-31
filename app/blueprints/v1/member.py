@@ -88,16 +88,48 @@ def update_member(id):
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
     return make_response(jsonify({"message": "user succesfully deleted", "id": id}),200)
 
-
-@member_bp.route("gift/<string:hash>/update",methods=["PATCH"])
+@member_bp.route("/<string:id>/gifts",methods=["PUT"])
 @admin_required
-def update_gift(hash):
+def add_gift(id):
+    try:
+        id = ObjectId(id)
+    except:
+        return make_response(jsonify({"message": id + "is not a valid id"}),400)
+    gifts = {\
+    "Date_of_Offer" :  request.args.get("Date_of_Offer"),\
+    "Offered_From" : request.args.get("Offered_From"),\
+    "Offered_to" : request.args.get("Offered_to"),\
+    "Description_of_Offer" : request.args.get("Description_of_Offer"),\
+    "Reason_for_offer" : request.args.get("Reason_for_offer"),\
+    "Estimated_Gift_Value" : request.args.get("Estimated_Gift_Value"),\
+    "Action_Taken" : request.args.get("Action_Taken"),\
+    }
+    if gifts.get("Date_of_Offer") == None or gifts.get("Offered_From") == None or gifts.get("Offered_to") == None or gifts.get("Description_of_Offer") == None or gifts.get("Reason_for_offer") == None or gifts.get("Estimated_Gift_Value") == None or gifts.get("Action_Taken") == None:
+        return make_response(jsonify({"message": "bad request all field must be filled"}, 400))
+
+    try:
+        datetime.strptime(gifts.get("Date_of_Offer"), "%d/%m/%Y")
+    except:
+        return make_response(jsonify({"message": "datetime invalid use format dd/mm/yyyy"}),400)
+
+    resp = DoF.update_one(filter={"_id": id}, update={"$push": gifts}).acknowledged
+    if not resp:
+        return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
+    return make_response(jsonify({"message": "user succesfully deleted", "id": id}),200)
+
+@member_bp.route("<string:id>/gift/<string:hash>/update",methods=["PATCH"])
+@admin_required
+def update_gift(id,hash):
+    try:
+        id = ObjectId(id)
+    except:
+        return make_response(jsonify({"message": id + "is not a valid id"}),400)
     key = request.headers.get("key")
     value = request.headers.get("value")
     if key == None or value == None:
         return make_response(jsonify({"message": "bad request both key and value must be filled"}, 400))
 
-    resp = DoF.update_one(filter={"Gifts": {"hash": hash}}, update={"$set": {"Gifts.$."+ key: value}},upsert=True).acknowledged
+    resp = DoF.update_one(filter={"_id": id,"Gifts": {"hash": hash}}, update={"$set": {"Gifts.$."+ key: value}},upsert=True).acknowledged
 
     if not resp:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
