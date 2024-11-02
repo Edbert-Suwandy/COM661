@@ -166,5 +166,5 @@ def delete_gift(hash,id):
     if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
     if(not resp.raw_result.get("n") or int(resp.raw_result.get("n")) < 1):
-        return make_response(jsonify({"message":"no gifts was deleted check hash"}),200)
+        return make_response(jsonify({"message":"no gifts was deleted check hash"}),400)
     return make_response(jsonify({"message": "gifts succesfully deleted"}),204)
