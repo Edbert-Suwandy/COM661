@@ -13,4 +13,4 @@ secret_key = getenv("SECRET_KEY")
 db = client["DoF-gratuity"]
 DoF = db["DoF"]
 User = db["User"]
-
+Blacklist = db["Blacklist"]

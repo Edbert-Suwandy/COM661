@@ -1,6 +1,7 @@
 from flask import make_response, jsonify, request, Blueprint
 from datetime import datetime
 from globals import DoF, ObjectId_to_str
+from decorator import admin_required 
 
 businessArea_bp = Blueprint("businessArea_bp", __name__)
 
@@ -44,7 +45,7 @@ def get_business():
     result = DoF.aggregate(pipeline=[\
             {"$unwind":"$Gifts"},\
             {"$group":\
-            {"_id":"$Gifts.Offered_From",\
+            {"_id":"$Business_Area",\
             "Total_Offer":{"$sum":1},\
             "Total_Accepted_Offer":{"$sum":{"$cond": [{"$eq":["$Gifts.Action_Taken","Accepted"]},1,0]}}\
             }},\
@@ -53,3 +54,19 @@ def get_business():
             ]).to_list()
     result = ObjectId_to_str(result)
     return make_response(jsonify(result), 200)
+
+@businessArea_bp.route("/<string:name>/rename", methods=["PATCH"])
+@admin_required
+def rename_business_area(name):
+    new_name = request.args.get("new_name")
+    if not new_name:
+        return make_response(jsonify({"message":"new_name filed can't be empty"}),400)
+
+    resp = DoF.update_many(filter={"Business_Area": name}, update={"$set": {"Business_Area": new_name}})
+    if not resp.acknowledged:
+        make_response(jsonify({"message": "query not ackowledge"}),500)
+
+    if (not resp.raw_result.get("updateExisting")):
+        make_response(jsonify({"message": "no update"}),200)
+
+    return make_response(jsonify({"message" : "rename operations successful"}),201)

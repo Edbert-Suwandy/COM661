@@ -18,7 +18,7 @@ app.register_blueprint(blueprint=member_bp,url_prefix= "/api/v1/member")
 
 def ensure_root():
     if(User.find_one(filter={"username": "root"}) == None):
-        User.insert_one({"username": "root", "password": sha256("password".encode("UTF-8")).hexdigest(), "is_admin": True, "sudo": True})
+        User.insert_one({"username": "root", "password": sha256("password".encode("UTF-8")).hexdigest(), "is_admin": True, "is_sudo": True})
 ensure_root()
 
 

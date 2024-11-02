@@ -1,6 +1,7 @@
 from flask import request, make_response, jsonify, Blueprint
 from datetime import datetime
 from globals import DoF, ObjectId_to_str, User 
+from decorator import admin_required 
 
 business_bp = Blueprint("business_bp", __name__)
 @business_bp.route("/",methods=["GET"])
@@ -41,11 +42,28 @@ def get_specific_business(business):
     end_isotime = datetime.strptime(end, "%d/%m/%Y").isoformat()
 
     # unwind gifts, match Gifts.Offered_From, Order by date
-    result = User.aggregate(pipeline=[\
+    result = DoF.aggregate(pipeline=[\
             {"$unwind":"$Gifts"},\
-            {"$match": {"Gifts.Offered_From":business, "Gifts.Date_of_Offer": {"$lt": end_isotime, "$gt": start_isotime}}},\
+            {"$match": {"Gifts.Offered_From":business, "Gifts.Date_of_Offer": {"$lt":end_isotime, "$gt":start_isotime}}},\
             {"$skip":(page-1)*paginate},\
             {"$limit": paginate},\
             ]).to_list()
     result = ObjectId_to_str(result)
     return make_response(jsonify(result),200)
+
+@business_bp.route("/<string:business>/rename",methods=["PATCH"])
+@admin_required
+def get_rename_business(business):
+    new_name = request.args.get("new_name")
+    if not new_name:
+        return make_response(jsonify({"message": "field new name can't be null"}),400)
+
+    resp = DoF.update_many(filter={}, update={"$set": {"Gifts.$[elem].Offered_From": business}}, array_filters=[{"elem.Offered_From": "old_name"}])
+
+    if not resp:
+        return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
+
+    if not resp.raw_result.get("updatedExsisting"):
+        return make_response(jsonify({"message": "no update done"}),200)
+
+    return make_response(jsonify({"message": "updated all entries"}),201)

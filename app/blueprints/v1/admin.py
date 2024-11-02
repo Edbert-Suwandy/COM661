@@ -14,12 +14,15 @@ admin_bp = Blueprint("admin_bp", __name__)
 
 @admin_bp.route("/login", methods=["GET"])
 def login():
-    auth = request.authorization
-    username = auth.username
-    password = auth.password
-
-    if auth == None or username == None or password == None:
+    try:
+        auth = request.authorization
+        username = auth.username
+        password = auth.password
+    except:
+        return make_response(jsonify({"message": "username and password field can't be null"}),400)
+    if not auth or not password or not username:
         make_response(jsonify({"message":"bad request"}),400)
+
     resp = User.find_one({"username":username})
     if resp == None:
         return make_response(jsonify({"message":"user not found"}))
@@ -29,23 +32,20 @@ def login():
     return make_response(jsonify({"token":encode(payload=\
             {"username":username,\
             "exp": datetime.now(UTC) + timedelta(minutes=30),\
-            "is_admin":str(resp.get("is_admin")),\
-            "is_sudo":str(resp.get("is_sudo"))},key=secret_key)})\
+            "is_admin":bool(resp.get("is_admin")),\
+            "is_sudo":bool(resp.get("is_sudo"))},key=secret_key)})\
             ,200)
 
 @admin_bp.route("/register", methods=["POST"])
 def register():
-    username = request.headers.get("Username")
-    password = request.headers.get("Password")
+    username = request.headers.get("username")
+    password = request.headers.get("password")
     description = request.form.get("description")
-    if username == "root":
-        return make_response(jsonify({"message":"username can't be root"}),400)
-    if username == None or password == None:
-        make_response(jsonify({"message":"bad request username and password can't be null"}),400)
 
-    # TO-DO: Fix this shit idk why man
-    if User.find_one(filter={"username": username}) != None:
-        make_response(jsonify({"message": "username taken"}),400)
+    if username == None or password == None:
+        return make_response(jsonify({"message":"bad request username and password can't be null"}),400)
+    if User.find_one(filter={"username": username}):
+        return make_response(jsonify({"message": "username taken"}),400)
     userid = User.insert_one({"username": username, "password": sha256(password.encode("UTF-8")).hexdigest(),"description":description, "is_admin": False}).inserted_id
     return make_response(jsonify({"message": "user added","id": str(userid)}), 201)
 
@@ -60,20 +60,17 @@ def update(id):
     resp = User.update_one(filter={"_id":ObjectId(id)},update={"$set":{key:value}},upsert=True).acknowledged
 
     # REDIRECT BACK TO BEFORE OR /users/admin_bp
-    if resp:
-        return make_response(jsonify({"message": "user " + str(id) + "has been updated"}, {"raw": resp}),201)
-    else:
+    if not resp:
         return make_response(jsonify({"message", "query not acknowledged by db"}),500)
+    return make_response(jsonify({"message": "user " + str(id) + "has been updated"}),201)
 
 @admin_bp.route("/<string:id>/delete",methods=["DELETE"])
 @admin_required
 @sudo_required
 def delete(id):
     resp = User.delete_one(filter={"_id": ObjectId(id)}).acknowledged
-    # REDIRECT BACK TO BEFORE OR /users/admin
-
     if resp:
-        return make_response(jsonify({"message": "user " + str(id) + "has been deleted"}),200)
+        return make_response(jsonify({"message": "user " + str(id) + "has been deleted"}),204)
     else:
         return make_response(jsonify({"message", "query not acknowledged by db"}),500)
 
@@ -82,14 +79,14 @@ def get_admin():
     users = User.find({},{"description":0,"password":0}).to_list()
     for i,_ in enumerate(users):
         users[i]["_id"] = str(users[i]["_id"])
-    return make_response(jsonify(users),200)
+    return make_response(jsonify(users),204)
 
 @admin_bp.route("/upload", methods=["POST"])
 @admin_required
-def upload_csv():
+def upload_csv():     
     f = request.files.get('file')
-    if f == None:
-        return jsonify({"message":"no params name file in the body of request found"})
+    if not f:
+        return make_response(jsonify({"message":"no params name file in the body of request found"}),400)
     data_filename = secure_filename(f.filename)
     f.save(path.join(upload_folder,data_filename))
     session['uploaded_data_file_path'] = path.join(secret_key,data_filename)

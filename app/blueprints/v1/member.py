@@ -66,7 +66,7 @@ def delete_member(id):
     if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
     
-    return make_response(jsonify({"message": "user succesfully deleted", "id": str(id)}),200)
+    return make_response(jsonify({"message": "user succesfully deleted", "id": str(id)}),204)
 
 @member_bp.route("/<string:id>/update",methods=["PATCH"])
 @admin_required
@@ -76,7 +76,6 @@ def update_member(id):
     except:
         return make_response(jsonify({"message": id + "is not a valid id"}),400)
 
-    # ASK THIS I CAN VALIDATE INPUT BUT ALSO THE WHOLE POINT OF MONGO DB IS IT CAN MUTATE QUICKLY
     key = request.headers.get("key")
     if key != "Ultimate_Recipient" and key != "Business_Area":
         return make_response(jsonify({"message": "Key must be either Business_Area or Ultimate_Recipient"}),400)
@@ -84,13 +83,15 @@ def update_member(id):
     if key == None or value == None:
         return make_response(jsonify({"message": "bad request both key and value must be filled"}, 400))
 
-    resp = DoF.update_one(filter={"_id":ObjectId(id)},update={"$set":{key:value}},upsert=True).acknowledged
+    resp = DoF.update_one(filter={"_id":ObjectId(id)},update={"$set":{key:value}},upsert=True)
 
-    if not resp:
+    if(not resp.raw_result.get("n") or int(resp.raw_result.get("n")) < 1):
+        return make_response(jsonify({"message": "member not found"}),400)
+    if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
-    return make_response(jsonify({"message": "user succesfully updated", "id": str(id)}),200)
+    return make_response(jsonify({"message": "user succesfully updated", "id": str(id)}),201)
 
-@member_bp.route("/<string:id>/gifts",methods=["PUT"])
+@member_bp.route("/<string:id>/gift/put",methods=["PUT"])
 @admin_required
 def add_gift(id):
     try:
@@ -103,25 +104,31 @@ def add_gift(id):
     "Offered_to" : request.form.get("Offered_to"),\
     "Description_of_Offer" : request.form.get("Description_of_Offer"),\
     "Reason_for_offer" : request.form.get("Reason_for_offer"),\
+    "Details_of_contract": request.form.get("Details_of_contract"),\
     "Estimated_Gift_Value" : request.form.get("Estimated_Gift_Value"),\
     "Action_Taken" : request.form.get("Action_Taken"),\
     }
     
     for key in gifts.keys():
         if not gifts.get(key):
-            return make_response({"message": "bad request field " + key + " must be filled"})
+            return make_response(jsonify({"message": "bad request field " + key + " must be filled"}),400)
 
     try:
         datetime.strptime(gifts.get("Date_of_Offer"), "%d/%m/%Y")
     except:
         return make_response(jsonify({"message": "datetime invalid use format dd/mm/yyyy"}),400)
 
+    if gifts.get("Action_Taken") != "Accepted" and gifts.get("Action_Taken") != "Declined":
+        return make_response(jsonify({"message": "Action taken must have the value 'Accepted' or 'Declined'"}),400)
+
     gift_hash = sha256(dumps(gifts).encode()).hexdigest()
-    gifts["gift_hash"] = gift_hash
-    resp = DoF.update_one(filter={"_id": id}, update={"$push": gifts}).acknowledged
-    if not resp:
+    gifts["hash"] = gift_hash
+    resp = DoF.update_one(filter={"_id": id}, update={"$push": {"Gifts": gifts}})
+    if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
-    return make_response(jsonify({"message": "Gift succesfully uploaded", "id": str(id), "hash": gift_hash}),200)
+    if(not resp.raw_result.get("n") or int(resp.raw_result.get("n")) < 1):
+        return make_response(jsonify({"message": "id not found"}),400)
+    return make_response(jsonify({"message": "Gift succesfully uploaded", "id": str(id),"hash": gift_hash ,"raw": resp.raw_result}),201)
 
 @member_bp.route("<string:id>/gift/<string:hash>/update",methods=["PATCH"])
 @admin_required
@@ -134,19 +141,30 @@ def update_gift(id,hash):
     value = request.headers.get("value")
     if key == None or value == None:
         return make_response(jsonify({"message": "bad request both key and value must be filled"}),400)
+    if key == "Date_of_Offer":
+        try:
+            datetime.strptime(value, "%d/%m/%Y")
+        except:
+            return make_response(jsonify({"message": "datetime invalid use format dd/mm/yyyy"}),400)
 
-    resp = DoF.update_one(filter={"_id": id,"Gifts.hash": hash}, update={"$set": {"Gifts.$."+key : value}}).acknowledged
-    if not resp:
+    resp = DoF.update_one(filter={"Gifts.hash": hash}, update={"$set": {"Gifts.$."+key : value}})
+    if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
-    
-    return make_response(jsonify({"message": "gift succesfully deleted", "id": str(id)}),201)
+    if(not resp.raw_result.get("n") or int(resp.raw_result.get("n")) < 1):
+        return make_response(jsonify({"message": "gift not found check hash"}),400)
+    return make_response(jsonify({"message": "gift succesfully updated", "id": str(id)}),201)
 
 @member_bp.route("<string:id>/gift/<string:hash>/delete",methods=["DELETE"])
 @admin_required
 def delete_gift(hash,id):
-    resp = DoF.delete_one(filter={"Gifts": {"hash": hash}})
+    try:
+        id = ObjectId(id)
+    except:
+        return make_response(jsonify({"message": id + "is not a valid id"}),400)
+    resp = DoF.delete_one(filter={"_id":id,"Gifts.hash": hash})
 
     if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
-    
-    return make_response(jsonify({"message": "gifts succesfully deleted"}),200)
+    if(not resp.raw_result.get("n") or int(resp.raw_result.get("n")) < 1):
+        return make_response(jsonify({"message":"no gifts was deleted check hash"}),200)
+    return make_response(jsonify({"message": "gifts succesfully deleted"}),204)
