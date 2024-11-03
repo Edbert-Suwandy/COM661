@@ -7,7 +7,7 @@ from os import path
 from werkzeug.utils import secure_filename 
 
 from parse_csv import parse_csv
-from globals import DoF, User, secret_key, upload_folder 
+from globals import Blacklist, DoF, User, secret_key, upload_folder 
 from decorator import admin_required, sudo_required
 
 admin_bp = Blueprint("admin_bp", __name__)
@@ -35,6 +35,15 @@ def login():
             "is_admin":bool(resp.get("is_admin")),\
             "is_sudo":bool(resp.get("is_sudo"))},key=secret_key)})\
             ,200)
+
+@admin_bp.route("/logout", methods=["PUT"])
+def logout():
+    token = request.headers.get("token")
+    if username == None or password == None:
+        return make_response(jsonify({"message":"bad request username and password can't be null"}),400)
+    
+    Blacklist.insert_one({"token": token})
+    return make_response(jsonify({"message":"successfully logged out"}))
 
 @admin_bp.route("/register", methods=["POST"])
 def register():
@@ -79,7 +88,9 @@ def get_admin():
     users = User.find({},{"description":0,"password":0}).to_list()
     for i,_ in enumerate(users):
         users[i]["_id"] = str(users[i]["_id"])
-    return make_response(jsonify(users),204)
+    return make_response(jsonify(users),200)
+
+
 
 @admin_bp.route("/upload", methods=["POST"])
 @admin_required

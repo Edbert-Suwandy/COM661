@@ -5,7 +5,6 @@ from json import dumps
 from globals import DoF, ObjectId_to_str
 from hashlib import sha256
 from decorator import admin_required 
-
 member_bp = Blueprint("member_BP", __name__)
 
 @member_bp.route("/", methods=["GET"])
@@ -147,7 +146,7 @@ def update_gift(id,hash):
         except:
             return make_response(jsonify({"message": "datetime invalid use format dd/mm/yyyy"}),400)
 
-    resp = DoF.update_one(filter={"Gifts.hash": hash}, update={"$set": {"Gifts.$."+key : value}})
+    resp = DoF.update_one(filter={"_id": id,"Gifts.hash": hash}, update={"$set": {"Gifts.$."+key : value}})
     if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
     if(not resp.raw_result.get("n") or int(resp.raw_result.get("n")) < 1):
