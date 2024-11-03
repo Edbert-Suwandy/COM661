@@ -119,10 +119,12 @@ def add_gift(id):
 
     if gifts.get("Action_Taken") != "Accepted" and gifts.get("Action_Taken") != "Declined":
         return make_response(jsonify({"message": "Action taken must have the value 'Accepted' or 'Declined'"}),400)
-
+    add = 0
+    if gifts.get("Action_Taken") == "Accepted":
+        add = 1
     gift_hash = sha256(dumps(gifts).encode()).hexdigest()
     gifts["hash"] = gift_hash
-    resp = DoF.update_one(filter={"_id": id}, update={"$push": {"Gifts": gifts}})
+    resp = DoF.update_one(filter={"_id": id}, update={"$push": {"Gifts": gifts}, "$inc": {"Total_Accepted_Gifts": add, "Total_Gifts": 1}})
     if not resp.acknowledged:
         return make_response(jsonify({"message": "query not acknowledged try again later"}),500)
     if(not resp.raw_result.get("n") or int(resp.raw_result.get("n")) < 1):
