@@ -41,13 +41,13 @@ def get_business():
     page:int = request.args.get(key="page",default=1,type=int)
     if page <= 1:
         page = 1
-    # Unwind gift, group business, count all offer, count accepted offer
+    # group business, count all offer, count accepted offer
     result = DoF.aggregate(pipeline=[\
             {"$unwind":"$Gifts"},\
             {"$group":\
             {"_id":"$Business_Area",\
-            "Total_Offer":{"$sum":1},\
-            "Total_Accepted_Offer":{"$sum":{"$cond": [{"$eq":["$Gifts.Action_Taken","Accepted"]},1,0]}}\
+            "Total_Offer":{"$sum":"Total_Gifts"},\
+            "Total_Accepted_Offer":{"$sum":"Total_Accepted_Gifts"}\
             }},\
             {"$skip": (page-1) * paginate},\
             {"$limit": paginate}\

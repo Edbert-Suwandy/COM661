@@ -51,7 +51,7 @@ def register():
     password = request.headers.get("password")
     description = request.form.get("description")
 
-    if username == None or password == None:
+    if not username or not password:
         return make_response(jsonify({"message":"bad request username and password can't be null"}),400)
     if User.find_one(filter={"username": username}):
         return make_response(jsonify({"message": "username taken"}),400)
@@ -64,9 +64,9 @@ def register():
 def update(id):
     key = request.headers.get("key")
     value = request.headers.get("value")
-    if key == None or value == None:
+    if not key or not value:
         return make_response(jsonify({"message": "bad request both key and value must be filled"}, 400))
-    resp = User.update_one(filter={"_id":ObjectId(id)},update={"$set":{key:value}},upsert=True).acknowledged
+    resp = User.update_one(filter={"_id":ObjectId(id)},update={"$set":{key:value}}).acknowledged
 
     # REDIRECT BACK TO BEFORE OR /users/admin_bp
     if not resp:
